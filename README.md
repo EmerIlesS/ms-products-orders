@@ -141,6 +141,66 @@ Los roles de usuario (CUSTOMER, SELLER, ADMIN) determinan los permisos para real
 
 Este microservicio está diseñado para funcionar con un API Gateway, que enruta las solicitudes apropiadas a este servicio en función de las rutas configuradas. El Gateway también se encarga de la autenticación inicial y pasa el token JWT al microservicio para su validación.
 
+### Implementación de la Integración
+
+#### Federación de Esquemas GraphQL
+
+Este microservicio expone su esquema GraphQL para ser federado por el API Gateway utilizando Apollo Federation. Esto permite:
+
+- **Composición de esquemas**: El Gateway combina los esquemas de múltiples servicios en un único esquema unificado.
+- **Resolución distribuida**: Las consultas que abarcan múltiples servicios son divididas y enrutadas adecuadamente.
+- **Referencias entre servicios**: Los tipos pueden hacer referencia a entidades definidas en otros servicios.
+
+Para habilitar la federación, el esquema GraphQL incluye directivas especiales como `@key` para identificar entidades y `@external` para referenciar campos de otros servicios.
+
+#### Configuración en el Servicio
+
+```typescript
+// Ejemplo de configuración en schema.ts
+const typeDefs = gql`
+  extend type User @key(fields: "id") {
+    id: ID! @external
+    orders: [Order]
+  }
+  // resto del esquema...
+`;
+```
+
+#### Enrutamiento de Solicitudes
+
+El API Gateway enruta las solicitudes a este microservicio basándose en:
+
+1. **Rutas predefinidas**: Todas las solicitudes a `/graphql/products` o `/graphql/orders` son dirigidas a este servicio.
+2. **Resolución de consultas**: Para consultas federadas, el Gateway determina qué partes de la consulta corresponden a este servicio.
+3. **Balanceo de carga**: El Gateway distribuye las solicitudes entre múltiples instancias del servicio cuando están disponibles.
+
+### Manejo de Autenticación y Autorización
+
+El flujo de autenticación entre el API Gateway y este microservicio funciona de la siguiente manera:
+
+1. El cliente envía una solicitud al API Gateway con un token JWT en el encabezado `Authorization`.
+2. El Gateway valida inicialmente el token y, si es válido, lo pasa a este microservicio en el encabezado de la solicitud.
+3. Este microservicio extrae el token del encabezado, lo decodifica y obtiene la información del usuario y sus roles.
+4. Basándose en los roles del usuario, el servicio determina si tiene permiso para realizar la operación solicitada.
+
+#### Configuración de Variables de Entorno
+
+Para la integración con el API Gateway, este microservicio requiere las siguientes variables de entorno adicionales:
+
+```
+GATEWAY_URL=http://api-gateway:4000
+SERVICE_NAME=products-orders
+SERVICE_PORT=4002
+```
+
+### Despliegue y Escalabilidad
+
+Este microservicio está diseñado para ser escalable horizontalmente. Cuando se despliegan múltiples instancias:
+
+1. El API Gateway descubre automáticamente las instancias disponibles.
+2. Las solicitudes se distribuyen entre las instancias utilizando un algoritmo de balanceo de carga.
+3. Las sesiones persistentes se mantienen mediante sticky sessions cuando es necesario.
+
 ## Ejemplos de Uso
 
 ### Consultar Productos
