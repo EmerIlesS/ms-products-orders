@@ -4,6 +4,7 @@ import { Order, OrderItem } from '../models/order.model';
 import { sequelize } from '../config/database';
 import { GraphQLError } from 'graphql';
 import { Op } from 'sequelize';
+import { isAuthenticated, isOwner } from '../middleware/authMiddleware';
 
 interface Context {
   user?: {
@@ -111,11 +112,15 @@ export const resolvers = {
       });
     },
 
-    order: async (_: any, { id }: { id: string }, { user }: Context) => {
-      if (!user) throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+    order: async (_: any, { id }: { id: string }, context: Context) => {
+      const user = isAuthenticated(context);
+      
       const order = await Order.findByPk(id);
-      if (order?.userId !== user.id && user.role !== 'admin') {
-        throw new GraphQLError('Not authorized', { extensions: { code: 'FORBIDDEN' } });
+      if (!order) throw new GraphQLError('Orden no encontrada', { extensions: { code: 'NOT_FOUND' } });
+      
+      // Verificar que el usuario sea el propietario de la orden o un administrador
+      if (user.role !== 'admin') {
+        isOwner(context, order.userId);
       }
       return order;
     },
@@ -310,16 +315,12 @@ export const resolvers = {
       return order;
     },
 
-    cancelOrder: async (_: any, { id }: { id: string }, { user }: Context) => {
-      if (!user) throw new GraphQLError('No autenticado', { extensions: { code: 'UNAUTHENTICATED' } });
-      
+    cancelOrder: async (_: any, { id }: { id: string }, context: Context) => {
       const order = await Order.findByPk(id);
       if (!order) throw new GraphQLError('Orden no encontrada', { extensions: { code: 'NOT_FOUND' } });
       
-      // Verificar que el usuario sea el propietario de la orden
-      if (order.userId !== user.id) {
-        throw new GraphQLError('No tienes permiso para cancelar esta orden', { extensions: { code: 'FORBIDDEN' } });
-      }
+      // Validar que el usuario sea el propietario de la orden
+      isOwner(context, order.userId);
       
       // Verificar que la orden esté en estado pendiente
       if (order.status !== 'pending') {
