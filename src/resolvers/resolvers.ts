@@ -176,6 +176,18 @@ export const resolvers = {
       return true;
     },
 
+    updateCategory: async (_: any, { id, input }: { id: string, input: CategoryInput }, { user }: Context) => {
+      if (!user || user.role !== 'admin') {
+        throw new GraphQLError('Solo administradores pueden actualizar categorías', { extensions: { code: 'FORBIDDEN' } });
+      }
+      
+      const category = await Category.findByPk(id);
+      if (!category) throw new GraphQLError('Categoría no encontrada', { extensions: { code: 'NOT_FOUND' } });
+      
+      await category.update(input);
+      return category;
+    },
+
     createOrder: async (_: any, { input }: { input: OrderInput }, { user }: Context) => {
       if (!user) throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
 

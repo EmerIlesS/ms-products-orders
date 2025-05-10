@@ -109,6 +109,7 @@ export const typeDefs = gql`
 
     # Category mutations
     createCategory(input: CreateCategoryInput!): Category!
+    updateCategory(id: ID!, input: CreateCategoryInput!): Category!
     deleteCategory(id: ID!): Boolean!
 
     # Order mutations
