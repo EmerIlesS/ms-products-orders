@@ -7,6 +7,7 @@ import { GraphQLError } from 'graphql';
 interface Context {
   user?: {
     id: string;
+    email?: string;
     role: string;
   };
 }
@@ -16,7 +17,9 @@ interface ProductInput {
   description: string;
   price: number;
   stock: number;
-  imageUrl: string;
+  imageUrl?: string;
+  imageUrls?: string[];
+  mainImageUrl?: string;
   categoryId: string;
 }
 
@@ -36,9 +39,14 @@ interface OrderInput {
 
 export const resolvers = {
   Query: {
-    products: async (_: any, { categoryId }: { categoryId?: string }) => {
+    products: async (_: any, { categoryId, limit = 10, offset = 0, sortBy = 'name', sortOrder = 'ASC' }: { categoryId?: string, limit?: number, offset?: number, sortBy?: string, sortOrder?: 'ASC' | 'DESC' }) => {
       const where = categoryId ? { categoryId } : {};
-      return Product.findAll({ where });
+      return Product.findAll({ 
+        where,
+        limit,
+        offset,
+        order: [[sortBy, sortOrder]]
+      });
     },
 
     product: async (_: any, { id }: { id: string }) => {
@@ -70,28 +78,83 @@ export const resolvers = {
 
   Mutation: {
     createProduct: async (_: any, { input }: { input: ProductInput }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
-        throw new GraphQLError('Only admins can create products', { extensions: { code: 'FORBIDDEN' } });
+      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+        throw new GraphQLError('Solo administradores y vendedores pueden crear productos', { extensions: { code: 'FORBIDDEN' } });
       }
-      return Product.create(input);
+      
+      // Validación de datos de entrada
+      if (input.price <= 0) {
+        throw new GraphQLError('El precio debe ser mayor que cero', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      
+      if (input.stock < 0) {
+        throw new GraphQLError('El stock no puede ser negativo', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      
+      // Verificar que la categoría existe
+      const category = await Category.findByPk(input.categoryId);
+      if (!category) {
+        throw new GraphQLError('La categoría especificada no existe', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      
+      // Preparar los datos para la creación del producto
+      const productData = {
+        ...input,
+        // Si no se proporciona imageUrls, crear un array con imageUrl
+        imageUrls: input.imageUrls || (input.imageUrl ? [input.imageUrl] : []),
+        // Si no se proporciona mainImageUrl, usar imageUrl o el primer elemento de imageUrls
+        mainImageUrl: input.mainImageUrl || input.imageUrl || (input.imageUrls && input.imageUrls.length > 0 ? input.imageUrls[0] : '')
+      };
+      
+      return Product.create(productData);
     },
 
     updateProduct: async (_: any, { id, input }: { id: string, input: ProductInput }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
-        throw new GraphQLError('Only admins can update products', { extensions: { code: 'FORBIDDEN' } });
+      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+        throw new GraphQLError('Solo administradores y vendedores pueden actualizar productos', { extensions: { code: 'FORBIDDEN' } });
       }
+      
       const product = await Product.findByPk(id);
-      if (!product) throw new Error('Product not found');
-      await product.update(input);
+      if (!product) throw new GraphQLError('Producto no encontrado', { extensions: { code: 'NOT_FOUND' } });
+      
+      // Validación de datos de entrada
+      if (input.price !== undefined && input.price <= 0) {
+        throw new GraphQLError('El precio debe ser mayor que cero', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      
+      if (input.stock !== undefined && input.stock < 0) {
+        throw new GraphQLError('El stock no puede ser negativo', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      
+      // Verificar que la categoría existe si se está actualizando
+      if (input.categoryId) {
+        const category = await Category.findByPk(input.categoryId);
+        if (!category) {
+          throw new GraphQLError('La categoría especificada no existe', { extensions: { code: 'BAD_USER_INPUT' } });
+        }
+      }
+      
+      // Preparar los datos para la actualización del producto
+      const productData = {
+        ...input,
+        // Si se proporciona imageUrl pero no imageUrls, actualizar imageUrls
+        imageUrls: input.imageUrls || (input.imageUrl ? [input.imageUrl] : undefined),
+        // Si se proporciona imageUrl pero no mainImageUrl, actualizar mainImageUrl
+        mainImageUrl: input.mainImageUrl || input.imageUrl || undefined
+      };
+      
+      await product.update(productData);
       return product;
     },
 
     deleteProduct: async (_: any, { id }: { id: string }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
-        throw new GraphQLError('Only admins can delete products', { extensions: { code: 'FORBIDDEN' } });
+      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+        throw new GraphQLError('Solo administradores y vendedores pueden eliminar productos', { extensions: { code: 'FORBIDDEN' } });
       }
+      
       const product = await Product.findByPk(id);
-      if (!product) throw new Error('Product not found');
+      if (!product) throw new GraphQLError('Producto no encontrado', { extensions: { code: 'NOT_FOUND' } });
+      
       await product.destroy();
       return true;
     },

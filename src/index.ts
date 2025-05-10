@@ -19,10 +19,20 @@ const port = process.env.PORT || 4002;
 const getUser = (token: string) => {
   try {
     if (token) {
-      return jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      // Verificar el token JWT usando la clave secreta compartida con ms-auth-java
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      
+      // Extraer correctamente la información del usuario del token JWT
+      // El token de ms-auth-java contiene el ID de usuario en 'sub'
+      return {
+        id: decoded.sub || decoded.id,
+        email: decoded.email,
+        role: decoded.role || decoded.roles
+      };
     }
     return null;
   } catch (error) {
+    console.error('Error al verificar token JWT:', error);
     return null;
   }
 };
@@ -38,8 +48,8 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Database connection has been established successfully.');
 
-    // Sync database models
-    await sequelize.sync({ force: true });
+    // Sync database models (alter: true para actualizar tablas sin eliminar datos)
+    await sequelize.sync({ alter: true });
     console.log('Database models synchronized.');
 
     await server.start();

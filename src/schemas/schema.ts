@@ -9,8 +9,11 @@ export const typeDefs = gql`
     description: String!
     price: Float!
     stock: Int!
-    imageUrl: String!
+    mainImageUrl: String!
+    imageUrls: [String!]!
     category: Category!
+    createdAt: String
+    updatedAt: String
   }
 
   type Category {
@@ -49,7 +52,8 @@ export const typeDefs = gql`
     description: String!
     price: Float!
     stock: Int!
-    imageUrl: String!
+    mainImageUrl: String!
+    imageUrls: [String!]
     categoryId: ID!
   }
 
@@ -58,7 +62,8 @@ export const typeDefs = gql`
     description: String
     price: Float
     stock: Int
-    imageUrl: String
+    mainImageUrl: String
+    imageUrls: [String!]
     categoryId: ID
   }
 
@@ -77,12 +82,23 @@ export const typeDefs = gql`
   }
 
   type Query {
-    products(categoryId: ID): [Product!]!
+    products(
+      categoryId: ID
+      limit: Int = 10
+      offset: Int = 0
+      sortBy: String = "name"
+      sortOrder: SortOrder = ASC
+    ): [Product!]!
     product(id: ID!): Product
     categories: [Category!]!
     category(id: ID!): Category
     orders: [Order!]!
     order(id: ID!): Order
+  }
+
+  enum SortOrder {
+    ASC
+    DESC
   }
 
   type Mutation {

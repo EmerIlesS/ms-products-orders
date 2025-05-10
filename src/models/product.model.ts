@@ -7,8 +7,11 @@ interface ProductAttributes {
   description: string;
   price: number;
   stock: number;
-  imageUrl: string;
+  imageUrls: string[];
+  mainImageUrl: string;
   categoryId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface ProductCreationAttributes extends Omit<ProductAttributes, 'id'> {}
@@ -19,8 +22,11 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   declare description: string;
   declare price: number;
   declare stock: number;
-  declare imageUrl: string;
+  declare imageUrls: string[];
+  declare mainImageUrl: string;
   declare categoryId: string;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 }
 
 Product.init(
@@ -47,7 +53,12 @@ Product.init(
       allowNull: false,
       defaultValue: 0,
     },
-    imageUrl: {
+    imageUrls: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+    },
+    mainImageUrl: {
       type: DataTypes.STRING,
       allowNull: false,
     },

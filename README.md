@@ -54,8 +54,11 @@ ms-products-orders/
 - **description**: Descripción detallada
 - **price**: Precio
 - **stock**: Cantidad disponible
-- **imageUrl**: URL de la imagen del producto
+- **mainImageUrl**: URL de la imagen principal del producto
+- **imageUrls**: Lista de URLs de imágenes adicionales del producto
 - **categoryId**: Referencia a la categoría
+- **createdAt**: Fecha de creación
+- **updatedAt**: Fecha de última actualización
 
 ### Categoría
 
@@ -109,7 +112,12 @@ ms-products-orders/
 
 ### Queries
 
-- **products**: Obtiene todos los productos (opcionalmente filtrados por categoría)
+- **products**: Obtiene todos los productos con opciones de paginación y ordenamiento
+  - **categoryId**: Filtro opcional por categoría
+  - **limit**: Número máximo de resultados (por defecto: 10)
+  - **offset**: Número de resultados a omitir para paginación
+  - **sortBy**: Campo por el cual ordenar (por defecto: "name")
+  - **sortOrder**: Dirección de ordenamiento (ASC o DESC)
 - **product**: Obtiene un producto por su ID
 - **categories**: Obtiene todas las categorías
 - **category**: Obtiene una categoría por su ID
@@ -118,8 +126,15 @@ ms-products-orders/
 
 ### Mutations
 
-- **createProduct**: Crea un nuevo producto (requiere rol SELLER o ADMIN)
-- **updateProduct**: Actualiza un producto existente (requiere rol SELLER o ADMIN)
+- **createProduct**: Crea un nuevo producto con validación de datos (requiere rol SELLER o ADMIN)
+  - Valida que el precio sea mayor que cero
+  - Valida que el stock no sea negativo
+  - Verifica que la categoría exista
+  - Permite múltiples imágenes para cada producto
+- **updateProduct**: Actualiza un producto existente con validación de datos (requiere rol SELLER o ADMIN)
+  - Valida que el precio sea mayor que cero
+  - Valida que el stock no sea negativo
+  - Verifica que la categoría exista
 - **deleteProduct**: Elimina un producto (requiere rol SELLER o ADMIN)
 - **createCategory**: Crea una nueva categoría (requiere rol ADMIN)
 - **updateCategory**: Actualiza una categoría existente (requiere rol ADMIN)
@@ -134,8 +149,8 @@ Este microservicio se integra con el microservicio de autenticación (ms-auth-ja
 Los roles de usuario (CUSTOMER, SELLER, ADMIN) determinan los permisos para realizar ciertas operaciones:
 
 - **CUSTOMER**: Puede ver productos y categorías, y crear órdenes
-- **SELLER**: Puede gestionar sus propios productos
-- **ADMIN**: Tiene acceso completo a todas las funcionalidades
+- **SELLER**: Puede crear, actualizar y eliminar productos
+- **ADMIN**: Tiene acceso completo a todas las funcionalidades, incluyendo la gestión de categorías y órdenes
 
 ## Integración con API Gateway
 
