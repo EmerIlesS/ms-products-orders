@@ -216,7 +216,12 @@ export const resolvers = {
     },
 
     createOrder: async (_: any, { input }: { input: OrderInput }, { user }: Context) => {
-      if (!user) throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      if (!user) throw new GraphQLError('No autenticado', { extensions: { code: 'UNAUTHENTICATED' } });
+      
+      // Verificar que el usuario tenga el rol de cliente
+      if (user.role !== 'customer') {
+        throw new GraphQLError('Solo los clientes pueden crear órdenes', { extensions: { code: 'FORBIDDEN' } });
+      }
 
       const transaction = await sequelize.transaction();
 
