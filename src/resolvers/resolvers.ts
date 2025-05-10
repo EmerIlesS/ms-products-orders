@@ -3,6 +3,7 @@ import { Category } from '../models/category.model';
 import { Order, OrderItem } from '../models/order.model';
 import { sequelize } from '../config/database';
 import { GraphQLError } from 'graphql';
+import { Op } from 'sequelize';
 
 interface Context {
   user?: {
@@ -39,8 +40,34 @@ interface OrderInput {
 
 export const resolvers = {
   Query: {
-    products: async (_: any, { categoryId, limit = 10, offset = 0, sortBy = 'name', sortOrder = 'ASC' }: { categoryId?: string, limit?: number, offset?: number, sortBy?: string, sortOrder?: 'ASC' | 'DESC' }) => {
-      const where = categoryId ? { categoryId } : {};
+    products: async (_: any, { categoryId, searchName, minPrice, maxPrice, limit = 10, offset = 0, sortBy = 'name', sortOrder = 'ASC' }: { categoryId?: string, searchName?: string, minPrice?: number, maxPrice?: number, limit?: number, offset?: number, sortBy?: string, sortOrder?: 'ASC' | 'DESC' }) => {
+      // Construir condiciones de búsqueda
+      let where: any = {};
+      
+      // Filtro por categoría
+      if (categoryId) {
+        where.categoryId = categoryId;
+      }
+      
+      // Búsqueda por nombre (usando LIKE para búsqueda parcial)
+      if (searchName) {
+        where.name = {
+          [Op.like]: `%${searchName}%`
+        };
+      }
+      
+      // Filtro por rango de precios
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        where.price = {};
+        if (minPrice !== undefined) {
+          where.price[Op.gte] = minPrice;
+        }
+        if (maxPrice !== undefined) {
+          where.price[Op.lte] = maxPrice;
+        }
+      }
+      
+      // Ejecutar consulta optimizada para paginación
       return Product.findAll({ 
         where,
         limit,

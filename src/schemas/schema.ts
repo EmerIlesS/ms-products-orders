@@ -84,6 +84,9 @@ export const typeDefs = gql`
   type Query {
     products(
       categoryId: ID
+      searchName: String
+      minPrice: Float
+      maxPrice: Float
       limit: Int = 10
       offset: Int = 0
       sortBy: String = "name"
