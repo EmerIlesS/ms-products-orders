@@ -88,9 +88,27 @@ export const resolvers = {
       return Category.findByPk(id);
     },
 
-    orders: async (_: any, __: any, { user }: Context) => {
-      if (!user) throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
-      return Order.findAll({ where: { userId: user.id } });
+    orders: async (_: any, { status }: { status?: 'pending' | 'processing' | 'completed' | 'cancelled' }, { user }: Context) => {
+      if (!user) throw new GraphQLError('No autenticado', { extensions: { code: 'UNAUTHENTICATED' } });
+      
+      // Construir condiciones de búsqueda
+      let where: any = {};
+      
+      // Si es admin o vendedor, puede ver todas las órdenes
+      if (user.role !== 'admin' && user.role !== 'seller') {
+        // Si es cliente, solo puede ver sus propias órdenes
+        where.userId = user.id;
+      }
+      
+      // Filtrar por estado si se proporciona
+      if (status) {
+        where.status = status;
+      }
+      
+      return Order.findAll({ 
+        where,
+        order: [['createdAt', 'DESC']]
+      });
     },
 
     order: async (_: any, { id }: { id: string }, { user }: Context) => {
@@ -281,14 +299,34 @@ export const resolvers = {
     },
 
     updateOrderStatus: async (_: any, { id, status }: { id: string, status: 'pending' | 'processing' | 'completed' | 'cancelled' }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
-        throw new GraphQLError('Only admins can update order status', { extensions: { code: 'FORBIDDEN' } });
+      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+        throw new GraphQLError('Solo administradores y vendedores pueden actualizar el estado de las órdenes', { extensions: { code: 'FORBIDDEN' } });
       }
 
       const order = await Order.findByPk(id);
-      if (!order) throw new Error('Order not found');
+      if (!order) throw new GraphQLError('Orden no encontrada', { extensions: { code: 'NOT_FOUND' } });
 
       await order.update({ status });
+      return order;
+    },
+
+    cancelOrder: async (_: any, { id }: { id: string }, { user }: Context) => {
+      if (!user) throw new GraphQLError('No autenticado', { extensions: { code: 'UNAUTHENTICATED' } });
+      
+      const order = await Order.findByPk(id);
+      if (!order) throw new GraphQLError('Orden no encontrada', { extensions: { code: 'NOT_FOUND' } });
+      
+      // Verificar que el usuario sea el propietario de la orden
+      if (order.userId !== user.id) {
+        throw new GraphQLError('No tienes permiso para cancelar esta orden', { extensions: { code: 'FORBIDDEN' } });
+      }
+      
+      // Verificar que la orden esté en estado pendiente
+      if (order.status !== 'pending') {
+        throw new GraphQLError('Solo se pueden cancelar órdenes en estado pendiente', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      
+      await order.update({ status: 'cancelled' });
       return order;
     },
   },

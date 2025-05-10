@@ -95,7 +95,7 @@ export const typeDefs = gql`
     product(id: ID!): Product
     categories: [Category!]!
     category(id: ID!): Category
-    orders: [Order!]!
+    orders(status: OrderStatus): [Order!]!
     order(id: ID!): Order
   }
 
@@ -118,5 +118,6 @@ export const typeDefs = gql`
     # Order mutations
     createOrder(input: CreateOrderInput!): Order!
     updateOrderStatus(id: ID!, status: OrderStatus!): Order!
+    cancelOrder(id: ID!): Order!
   }
 `;
