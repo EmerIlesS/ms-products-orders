@@ -168,6 +168,27 @@ Este microservicio expone su esquema GraphQL para ser federado por el API Gatewa
 
 Para habilitar la federación, el esquema GraphQL incluye directivas especiales como `@key` para identificar entidades y `@external` para referenciar campos de otros servicios.
 
+#### Configuración Técnica
+
+La federación se implementa mediante:
+
+1. La directiva `extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])` en el esquema GraphQL
+2. La definición de tipos con la directiva `@key`, como `type Product @key(fields: "id")`
+3. El uso de `buildSubgraphSchema` de Apollo Federation para construir el esquema
+
+```typescript
+// Fragmento de código que muestra la configuración del esquema federado
+import { buildSubgraphSchema } from '@apollo/subgraph';
+
+const server = new ApolloServer({
+  schema: buildSubgraphSchema({
+    typeDefs,
+    resolvers
+  }),
+  // Resto de la configuración
+});
+```
+
 #### Configuración en el Servicio
 
 ```typescript
@@ -188,6 +209,38 @@ El API Gateway enruta las solicitudes a este microservicio basándose en:
 1. **Rutas predefinidas**: Todas las solicitudes a `/graphql/products` o `/graphql/orders` son dirigidas a este servicio.
 2. **Resolución de consultas**: Para consultas federadas, el Gateway determina qué partes de la consulta corresponden a este servicio.
 3. **Balanceo de carga**: El Gateway distribuye las solicitudes entre múltiples instancias del servicio cuando están disponibles.
+
+#### Autenticación y Autorización
+
+Este microservicio recibe y valida tokens JWT que son pasados por el API Gateway:
+
+```typescript
+// Fragmento de código que muestra la validación de tokens JWT
+const getUser = (token: string) => {
+  try {
+    if (token) {
+      // Verificar el token JWT usando la clave secreta compartida con ms-auth-java
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      
+      return {
+        id: decoded.sub || decoded.id,
+        email: decoded.email,
+        role: (decoded.role || decoded.roles || '').toLowerCase()
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al verificar token JWT:', error);
+    return null;
+  }
+};
+```
+
+#### Comunicación con otros Microservicios
+
+- Este microservicio puede recibir información de usuarios desde el microservicio de autenticación a través del API Gateway.
+- La comunicación se realiza mediante consultas federadas que combinan datos de ambos servicios.
+- Los productos favoritos de un usuario (gestionados por el servicio de autenticación) pueden ser consultados junto con los detalles de los productos (gestionados por este servicio).
 
 ### Manejo de Autenticación y Autorización
 
