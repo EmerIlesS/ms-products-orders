@@ -2,9 +2,11 @@ services:
   # Servicio de Productos y Órdenes
   - type: web
     name: ms-products-orders-service
+    repo: https://github.com/EmerIlesS/ms-products-orders.git
     plan: starter
     region: ohio
     branch: main
+    env: node
     envVars:
       - key: SERVER_PORT
         value: 4002
