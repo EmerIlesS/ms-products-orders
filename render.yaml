@@ -1,0 +1,49 @@
+services:
+  # Servicio de Productos y Órdenes
+  - type: web
+    name: ms-products-orders-service
+    runtime: docker
+    plan: starter
+    region: ohio
+    branch: main
+    envVars:
+      - key: SERVER_PORT
+        value: 4002
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: postgres-db
+          property: connectionString
+      - key: DB_HOST
+        fromDatabase:
+          name: postgres-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: postgres-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: postgres-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: postgres-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: postgres-db
+          property: password
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+# Base de datos PostgreSQL para productos y órdenes
+databases:
+  - name: postgres-db
+    plan: starter
+    region: ohio
+    databaseName: ecommerce
+    ipAllowList: []  # Acceso desde cualquier IP
