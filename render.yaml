@@ -2,7 +2,6 @@ services:
   # Servicio de Productos y Órdenes
   - type: web
     name: ms-products-orders-service
-    runtime: docker
     plan: starter
     region: ohio
     branch: main
