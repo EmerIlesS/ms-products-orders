@@ -115,3 +115,22 @@ Product.belongsToMany(Order, {
   as: 'orders',
   foreignKey: 'productId',
 });
+
+// Define direct associations for OrderItem
+Order.hasMany(OrderItem, {
+  as: 'items',
+  foreignKey: 'orderId',
+});
+
+OrderItem.belongsTo(Order, {
+  foreignKey: 'orderId',
+});
+
+Product.hasMany(OrderItem, {
+  foreignKey: 'productId',
+});
+
+OrderItem.belongsTo(Product, {
+  as: 'product',
+  foreignKey: 'productId',
+});

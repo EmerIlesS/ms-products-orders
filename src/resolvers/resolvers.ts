@@ -201,18 +201,21 @@ export const resolvers = {
       await product.destroy();
       return true;
     },    createCategory: async (_: any, { input }: { input: CategoryInput }, { user }: Context) => {
+      if (!user || user.role.toLowerCase() !== 'admin') {
+
       console.log('🔍 DEBUG createCategory - Usuario recibido:', user);
       console.log('🔍 DEBUG createCategory - Rol original:', user?.role);
       console.log('🔍 DEBUG createCategory - Rol normalizado:', user?.role?.toLowerCase());
       
-      if (!user || user.role.toLowerCase() !== 'admin') {
-        console.log('❌ DEBUG createCategory - Acceso denegado para usuario:', user);
+     
         throw new GraphQLError('Only admins can create categories', { extensions: { code: 'FORBIDDEN' } });
       }
+        
+        
       
       console.log('✅ DEBUG createCategory - Acceso permitido, creando categoría:', input);
       return Category.create(input);
-    },deleteCategory: async (_: any, { id }: { id: string }, { user }: Context) => {
+    },    deleteCategory: async (_: any, { id }: { id: string }, { user }: Context) => {
       if (!user || user.role.toLowerCase() !== 'admin') {
         throw new GraphQLError('Only admins can delete categories', { extensions: { code: 'FORBIDDEN' } });
       }
