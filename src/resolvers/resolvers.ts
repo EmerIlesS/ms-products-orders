@@ -94,9 +94,8 @@ export const resolvers = {
       
       // Construir condiciones de búsqueda
       let where: any = {};
-      
-      // Si es admin o vendedor, puede ver todas las órdenes
-      if (user.role !== 'admin' && user.role !== 'seller') {
+        // Si es admin o vendedor, puede ver todas las órdenes
+      if (user.role.toLowerCase() !== 'admin' && user.role.toLowerCase() !== 'seller') {
         // Si es cliente, solo puede ver sus propias órdenes
         where.userId = user.id;
       }
@@ -117,18 +116,16 @@ export const resolvers = {
       
       const order = await Order.findByPk(id);
       if (!order) throw new GraphQLError('Orden no encontrada', { extensions: { code: 'NOT_FOUND' } });
-      
-      // Verificar que el usuario sea el propietario de la orden o un administrador
-      if (user.role !== 'admin') {
+        // Verificar que el usuario sea el propietario de la orden o un administrador
+      if (user.role.toLowerCase() !== 'admin') {
         isOwner(context, order.userId);
       }
       return order;
     },
   },
 
-  Mutation: {
-    createProduct: async (_: any, { input }: { input: ProductInput }, { user }: Context) => {
-      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+  Mutation: {    createProduct: async (_: any, { input }: { input: ProductInput }, { user }: Context) => {
+      if (!user || (user.role.toLowerCase() !== 'admin' && user.role.toLowerCase() !== 'seller')) {
         throw new GraphQLError('Solo administradores y vendedores pueden crear productos', { extensions: { code: 'FORBIDDEN' } });
       }
       
@@ -157,10 +154,8 @@ export const resolvers = {
       };
       
       return Product.create(productData);
-    },
-
-    updateProduct: async (_: any, { id, input }: { id: string, input: ProductInput }, { user }: Context) => {
-      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+    },    updateProduct: async (_: any, { id, input }: { id: string, input: ProductInput }, { user }: Context) => {
+      if (!user || (user.role.toLowerCase() !== 'admin' && user.role.toLowerCase() !== 'seller')) {
         throw new GraphQLError('Solo administradores y vendedores pueden actualizar productos', { extensions: { code: 'FORBIDDEN' } });
       }
       
@@ -195,10 +190,8 @@ export const resolvers = {
       
       await product.update(productData);
       return product;
-    },
-
-    deleteProduct: async (_: any, { id }: { id: string }, { user }: Context) => {
-      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+    },    deleteProduct: async (_: any, { id }: { id: string }, { user }: Context) => {
+      if (!user || (user.role.toLowerCase() !== 'admin' && user.role.toLowerCase() !== 'seller')) {
         throw new GraphQLError('Solo administradores y vendedores pueden eliminar productos', { extensions: { code: 'FORBIDDEN' } });
       }
       
@@ -209,8 +202,18 @@ export const resolvers = {
       return true;
     },    createCategory: async (_: any, { input }: { input: CategoryInput }, { user }: Context) => {
       if (!user || user.role.toLowerCase() !== 'admin') {
+
+      console.log('🔍 DEBUG createCategory - Usuario recibido:', user);
+      console.log('🔍 DEBUG createCategory - Rol original:', user?.role);
+      console.log('🔍 DEBUG createCategory - Rol normalizado:', user?.role?.toLowerCase());
+      
+     
         throw new GraphQLError('Only admins can create categories', { extensions: { code: 'FORBIDDEN' } });
       }
+        
+        
+      
+      console.log('✅ DEBUG createCategory - Acceso permitido, creando categoría:', input);
       return Category.create(input);
     },    deleteCategory: async (_: any, { id }: { id: string }, { user }: Context) => {
       if (!user || user.role.toLowerCase() !== 'admin') {
@@ -220,10 +223,8 @@ export const resolvers = {
       if (!category) throw new Error('Category not found');
       await category.destroy();
       return true;
-    },
-
-    updateCategory: async (_: any, { id, input }: { id: string, input: CategoryInput }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
+    },    updateCategory: async (_: any, { id, input }: { id: string, input: CategoryInput }, { user }: Context) => {
+      if (!user || user.role.toLowerCase() !== 'admin') {
         throw new GraphQLError('Solo administradores pueden actualizar categorías', { extensions: { code: 'FORBIDDEN' } });
       }
       
@@ -232,20 +233,62 @@ export const resolvers = {
       
       await category.update(input);
       return category;
-    },
-
-    createOrder: async (_: any, { input }: { input: OrderInput }, { user }: Context) => {
+    },    createOrder: async (_: any, { input }: { input: OrderInput }, { user }: Context) => {
       if (!user) throw new GraphQLError('No autenticado', { extensions: { code: 'UNAUTHENTICATED' } });
-      
-      // Verificar que el usuario tenga el rol de cliente
-      if (user.role !== 'customer') {
+        // Verificar que el usuario tenga el rol de cliente
+      if (user.role.toLowerCase() !== 'customer') {
         throw new GraphQLError('Solo los clientes pueden crear órdenes', { extensions: { code: 'FORBIDDEN' } });
+      }
+      
+      // Validar que el pedido tenga al menos un elemento
+      if (!input.items || input.items.length === 0) {
+        throw new GraphQLError('La orden debe contener al menos un producto', { 
+          extensions: { code: 'BAD_USER_INPUT' } 
+        });
+      }
+      
+      // Validar que no haya IDs de productos duplicados
+      const productIds = input.items.map(item => item.productId);
+      const uniqueProductIds = new Set(productIds);
+      if (productIds.length !== uniqueProductIds.size) {
+        throw new GraphQLError(
+          'La orden contiene productos duplicados. Por favor, consolide las cantidades.', 
+          { extensions: { code: 'BAD_USER_INPUT' } }
+        );
       }
 
       const transaction = await sequelize.transaction();
 
       try {
-        // Create order
+        // Verificar disponibilidad de productos primero
+        const productChecks = await Promise.all(
+          input.items.map(async (item) => {
+            const product = await Product.findByPk(item.productId);
+            if (!product) {
+              throw new GraphQLError(`Producto no encontrado: ${item.productId}`, { 
+                extensions: { code: 'NOT_FOUND' } 
+              });
+            }
+            
+            if (product.stock < item.quantity) {
+              throw new GraphQLError(
+                `Stock insuficiente para el producto ${product.name}. Disponible: ${product.stock}, Solicitado: ${item.quantity}`, 
+                { extensions: { code: 'BAD_USER_INPUT' } }
+              );
+            }
+            
+            if (item.quantity <= 0) {
+              throw new GraphQLError(
+                `La cantidad del producto ${product.name} debe ser mayor que cero`, 
+                { extensions: { code: 'BAD_USER_INPUT' } }
+              );
+            }
+            
+            return { product, quantity: item.quantity };
+          })
+        );
+
+        // Crear el pedido
         const order = await Order.create(
           {
             userId: user.id,
@@ -256,51 +299,65 @@ export const resolvers = {
         );
 
         let total = 0;
+        let orderItems = [];
 
-        // Process each order item
-        for (const item of input.items) {
-          const product = await Product.findByPk(item.productId);
-          if (!product) throw new Error(`Product ${item.productId} not found`);
-          if (product.stock < item.quantity) {
-            throw new Error(`Insufficient stock for product ${product.name}`);
-          }
-
-          // Create order item
-          await OrderItem.create(
+        // Procesar cada elemento del pedido
+        for (const { product, quantity } of productChecks) {
+          // Crear el elemento de la orden
+          const orderItem = await OrderItem.create(
             {
               orderId: order.id,
               productId: product.id,
-              quantity: item.quantity,
-              price: product.price,
-              subtotal: product.price * item.quantity,
+              quantity: quantity,
+              price: parseFloat(product.price.toString()), // Asegurar que sea un número
+              subtotal: parseFloat(product.price.toString()) * quantity,
             },
             { transaction }
           );
+          
+          orderItems.push(orderItem);
 
-          // Update product stock
+          // Actualizar el stock del producto
           await product.update(
             {
-              stock: product.stock - item.quantity,
+              stock: product.stock - quantity,
             },
             { transaction }
           );
 
-          total += product.price * item.quantity;
+          // Acumular el total
+          total += parseFloat(product.price.toString()) * quantity;
         }
 
-        // Update order total
-        await order.update({ total }, { transaction });
+        // Actualizar el total del pedido redondeando a 2 decimales
+        await order.update({ 
+          total: Math.round(total * 100) / 100
+        }, { transaction });
 
+        // Confirmar la transacción
         await transaction.commit();
+        
+        console.log(`Orden ${order.id} creada correctamente para el usuario ${user.id}`);
         return order;
       } catch (error) {
+        // Rollback en caso de error
         await transaction.rollback();
-        throw error;
+        
+        // Registrar el error para depuración
+        console.error('Error al crear orden:', error);
+        
+        // Reenviar el error con un formato adecuado para GraphQL
+        if (error instanceof GraphQLError) {
+          throw error;
+        } else {
+          throw new GraphQLError(
+            `Error al procesar la orden: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+            { extensions: { code: 'INTERNAL_SERVER_ERROR' } }
+          );
+        }
       }
-    },
-
-    updateOrderStatus: async (_: any, { id, status }: { id: string, status: 'pending' | 'processing' | 'completed' | 'cancelled' }, { user }: Context) => {
-      if (!user || (user.role !== 'admin' && user.role !== 'seller')) {
+    },    updateOrderStatus: async (_: any, { id, status }: { id: string, status: 'pending' | 'processing' | 'completed' | 'cancelled' }, { user }: Context) => {
+      if (!user || (user.role.toLowerCase() !== 'admin' && user.role.toLowerCase() !== 'seller')) {
         throw new GraphQLError('Solo administradores y vendedores pueden actualizar el estado de las órdenes', { extensions: { code: 'FORBIDDEN' } });
       }
 
@@ -336,13 +393,26 @@ export const resolvers = {
       return Product.findByPk(reference.id);
     },
   },
-
   Order: {
     items: async (order: Order) => {
-      return OrderItem.findAll({
-        where: { orderId: order.id },
-        include: [{ model: Product, as: 'product' }],
-      });
+      try {
+        const orderItems = await OrderItem.findAll({
+          where: { orderId: order.id },
+          include: [{ 
+            model: Product, 
+            as: 'product',
+            // Incluir la categoría del producto
+            include: [{ model: Category, as: 'category' }] 
+          }],
+        });
+        
+        // Si no hay elementos, devolver un array vacío en lugar de null
+        return orderItems || [];
+      } catch (error) {
+        console.error(`Error al obtener los elementos de la orden ${order.id}:`, error);
+        // Devolver un array vacío para evitar errores null en el cliente
+        return [];
+      }
     },
   },
 };

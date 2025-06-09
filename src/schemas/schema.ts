@@ -15,12 +15,13 @@ export const typeDefs = gql`
     createdAt: String
     updatedAt: String
   }
-
   type Category {
     id: ID!
     name: String!
     description: String!
     products: [Product!]!
+    createdAt: String
+    updatedAt: String
   }
 
   type Order {
