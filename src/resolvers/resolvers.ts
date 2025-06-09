@@ -207,17 +207,13 @@ export const resolvers = {
       
       await product.destroy();
       return true;
-    },
-
-    createCategory: async (_: any, { input }: { input: CategoryInput }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
+    },    createCategory: async (_: any, { input }: { input: CategoryInput }, { user }: Context) => {
+      if (!user || user.role.toLowerCase() !== 'admin') {
         throw new GraphQLError('Only admins can create categories', { extensions: { code: 'FORBIDDEN' } });
       }
       return Category.create(input);
-    },
-
-    deleteCategory: async (_: any, { id }: { id: string }, { user }: Context) => {
-      if (!user || user.role !== 'admin') {
+    },    deleteCategory: async (_: any, { id }: { id: string }, { user }: Context) => {
+      if (!user || user.role.toLowerCase() !== 'admin') {
         throw new GraphQLError('Only admins can delete categories', { extensions: { code: 'FORBIDDEN' } });
       }
       const category = await Category.findByPk(id);
