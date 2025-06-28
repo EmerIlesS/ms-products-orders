@@ -6,6 +6,12 @@ interface CategoryAttributes {
   id: string;
   name: string;
   description: string;
+  icon?: string;
+  image?: string;
+  productsCount: number;
+  active: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface CategoryCreationAttributes extends Omit<CategoryAttributes, 'id'> {}
@@ -14,6 +20,12 @@ export class Category extends Model<CategoryAttributes, CategoryCreationAttribut
   declare id: string;
   declare name: string;
   declare description: string;
+  declare icon?: string;
+  declare image?: string;
+  declare productsCount: number;
+  declare active: boolean;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 }
 
 Category.init(
@@ -32,6 +44,24 @@ Category.init(
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    icon: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    image: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    productsCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
   },
   {
     sequelize,
@@ -49,5 +79,5 @@ Category.hasMany(Product, {
 
 Product.belongsTo(Category, {
   foreignKey: 'categoryId',
-  as: 'category',
+  as: 'categoryInfo', // Cambiar el alias para evitar conflicto
 });
